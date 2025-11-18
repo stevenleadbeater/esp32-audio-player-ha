@@ -49,6 +49,7 @@ class ESP32AudioPlayer(MediaPlayerEntity):
     """Representation of an ESP32 Audio Player."""
 
     _attr_has_entity_name = True
+    _attr_icon = "mdi:speaker-wireless"
     _attr_supported_features = (
         MediaPlayerEntityFeature.PLAY
         | MediaPlayerEntityFeature.STOP
