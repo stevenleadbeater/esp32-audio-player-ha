@@ -180,6 +180,12 @@ class ESP32AudioPlayer(MediaPlayerEntity):
                 _LOGGER.error("Error resolving media source: %s", e)
                 return
 
+        # Convert relative URLs to absolute URLs
+        if media_id.startswith("/"):
+            from homeassistant.helpers.network import get_url
+            base_url = get_url(self.hass, prefer_external=False)
+            media_id = f"{base_url}{media_id}"
+
         _LOGGER.info("Playing media URL: %s", media_id)
 
         # URL encode the media_id
