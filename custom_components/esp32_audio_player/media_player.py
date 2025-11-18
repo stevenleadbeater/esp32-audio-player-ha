@@ -12,10 +12,6 @@ from homeassistant.components.media_player import (
     MediaPlayerState,
     MediaType,
     BrowseMedia,
-    async_process_play_media_url,
-)
-from homeassistant.components.media_player.browse_media import (
-    async_process_play_media_url,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME
@@ -173,10 +169,18 @@ class ESP32AudioPlayer(MediaPlayerEntity):
         self, media_type: MediaType | str, media_id: str, **kwargs
     ) -> None:
         """Play media from a URL."""
-        # Resolve any media source URLs
-        media_id = async_process_play_media_url(self.hass, media_id)
+        from homeassistant.components.media_source import async_resolve_media
 
-        _LOGGER.info("Playing media: %s", media_id)
+        # Resolve media source URLs to actual HTTP URLs
+        if media_id.startswith("media-source://"):
+            try:
+                sourced_media = await async_resolve_media(self.hass, media_id, self.entity_id)
+                media_id = sourced_media.url
+            except Exception as e:
+                _LOGGER.error("Error resolving media source: %s", e)
+                return
+
+        _LOGGER.info("Playing media URL: %s", media_id)
 
         # URL encode the media_id
         from urllib.parse import quote
