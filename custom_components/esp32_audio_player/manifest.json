@@ -4,7 +4,7 @@
   "codeowners": [],
   "config_flow": true,
   "dependencies": ["mqtt"],
-  "documentation": "https://github.com/your-repo/esp32-audio-player",
+  "documentation": "https://github.com/stevenleadbeater/esp32-audio-player",
   "iot_class": "local_push",
   "mqtt": ["esp32_audio/+/state"],
   "version": "1.0.0"

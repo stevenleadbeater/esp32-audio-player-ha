@@ -11,6 +11,11 @@ from homeassistant.components.media_player import (
     MediaPlayerEntityFeature,
     MediaPlayerState,
     MediaType,
+    BrowseMedia,
+    async_process_play_media_url,
+)
+from homeassistant.components.media_player.browse_media import (
+    async_process_play_media_url,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME
@@ -49,6 +54,7 @@ class ESP32AudioPlayer(MediaPlayerEntity):
         | MediaPlayerEntityFeature.STOP
         | MediaPlayerEntityFeature.VOLUME_SET
         | MediaPlayerEntityFeature.PLAY_MEDIA
+        | MediaPlayerEntityFeature.BROWSE_MEDIA
     )
 
     def __init__(
@@ -166,6 +172,9 @@ class ESP32AudioPlayer(MediaPlayerEntity):
         self, media_type: MediaType | str, media_id: str, **kwargs
     ) -> None:
         """Play media from a URL."""
+        # Resolve any media source URLs
+        media_id = async_process_play_media_url(self.hass, media_id)
+
         _LOGGER.info("Playing media: %s", media_id)
 
         # URL encode the media_id
@@ -173,3 +182,15 @@ class ESP32AudioPlayer(MediaPlayerEntity):
         encoded_url = quote(media_id, safe='')
 
         await self._send_http_command("play", {"url": encoded_url})
+
+    async def async_browse_media(
+        self, media_content_type: str | None = None, media_content_id: str | None = None
+    ) -> BrowseMedia:
+        """Implement the websocket media browsing helper."""
+        from homeassistant.components.media_source import async_browse_media
+
+        return await async_browse_media(
+            self.hass,
+            media_content_id,
+            content_filter=lambda item: item.media_content_type.startswith("audio/"),
+        )
