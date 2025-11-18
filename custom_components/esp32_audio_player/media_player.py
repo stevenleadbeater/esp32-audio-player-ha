@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 import aiohttp
 import async_timeout
+import asyncio
+from datetime import timedelta
 
 from homeassistant.components import mqtt
 from homeassistant.components.media_player import (
@@ -84,6 +86,12 @@ class ESP32AudioPlayer(MediaPlayerEntity):
         self._volume_topic = f"esp32_audio/{device_id}/volume"
         self._availability_topic = f"esp32_audio/{device_id}/availability"
 
+        # Queue for media playback requests
+        self._play_queue: asyncio.Queue = asyncio.Queue()
+        self._queue_processor_task: asyncio.Task | None = None
+        self._last_play_time: float = 0
+        self._min_play_interval: float = 1.0  # Minimum seconds between play commands
+
     async def async_added_to_hass(self) -> None:
         """Subscribe to MQTT topics."""
 
@@ -117,6 +125,41 @@ class ESP32AudioPlayer(MediaPlayerEntity):
         await mqtt.async_subscribe(self.hass, self._state_topic, state_received, 0)
         await mqtt.async_subscribe(self.hass, self._volume_topic, volume_received, 0)
         await mqtt.async_subscribe(self.hass, self._availability_topic, availability_received, 0)
+
+        # Start the queue processor
+        self._queue_processor_task = asyncio.create_task(self._process_play_queue())
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up when entity is removed."""
+        if self._queue_processor_task:
+            self._queue_processor_task.cancel()
+            try:
+                await self._queue_processor_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _process_play_queue(self) -> None:
+        """Process queued play requests sequentially."""
+        import time
+        while True:
+            try:
+                encoded_url = await self._play_queue.get()
+
+                # Enforce minimum interval between play commands
+                now = time.time()
+                elapsed = now - self._last_play_time
+                if elapsed < self._min_play_interval:
+                    await asyncio.sleep(self._min_play_interval - elapsed)
+
+                # Send the command
+                await self._send_http_command("play", {"url": encoded_url})
+                self._last_play_time = time.time()
+
+                self._play_queue.task_done()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                _LOGGER.error("Error processing play queue: %s", e)
 
     @property
     def state(self) -> MediaPlayerState:
@@ -180,11 +223,19 @@ class ESP32AudioPlayer(MediaPlayerEntity):
                 _LOGGER.error("Error resolving media source: %s", e)
                 return
 
-        # Convert relative URLs to absolute URLs
+        # Convert relative URLs to absolute signed URLs (includes auth token)
         if media_id.startswith("/"):
             from homeassistant.helpers.network import get_url
+            from homeassistant.components.http import async_sign_path
+
+            # Sign the path to include authentication
+            signed_path = async_sign_path(
+                self.hass,
+                media_id,
+                timedelta(minutes=5)
+            )
             base_url = get_url(self.hass, prefer_external=False)
-            media_id = f"{base_url}{media_id}"
+            media_id = f"{base_url}{signed_path}"
 
         _LOGGER.info("Playing media URL: %s", media_id)
 
@@ -192,7 +243,8 @@ class ESP32AudioPlayer(MediaPlayerEntity):
         from urllib.parse import quote
         encoded_url = quote(media_id, safe='')
 
-        await self._send_http_command("play", {"url": encoded_url})
+        # Queue the play request instead of sending directly
+        await self._play_queue.put(encoded_url)
 
     async def async_browse_media(
         self, media_content_type: str | None = None, media_content_id: str | None = None
