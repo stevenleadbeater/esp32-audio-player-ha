@@ -1,0 +1,11 @@
+{
+  "domain": "esp32_audio_player",
+  "name": "ESP32 Audio Player",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["mqtt"],
+  "documentation": "https://github.com/your-repo/esp32-audio-player",
+  "iot_class": "local_push",
+  "mqtt": ["esp32_audio/+/state"],
+  "version": "1.0.0"
+}

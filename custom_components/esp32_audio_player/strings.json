@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ESP32 Audio Player",
+        "description": "Configure your ESP32 Audio Player device",
+        "data": {
+          "name": "Device Name",
+          "device_id": "Device ID (must match firmware)",
+          "host": "IP Address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  }
+}
