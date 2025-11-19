@@ -226,7 +226,7 @@ class ESP32AudioPlayer(MediaPlayerEntity):
         # Convert relative URLs to absolute signed URLs (includes auth token)
         if media_id.startswith("/"):
             from homeassistant.helpers.network import get_url
-            from homeassistant.components.http import async_sign_path
+            from homeassistant.components.http.auth import async_sign_path
 
             # Sign the path to include authentication
             signed_path = async_sign_path(
